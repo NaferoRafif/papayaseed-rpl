@@ -1,76 +1,74 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+
+const DUMMY_USER = {
+  id: 'dummy-user-nafero-rafif',
+  email: 'nafero@agrokates.com',
+  user_metadata: { full_name: 'Nafero Rafif' },
+  app_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+} as const;
+
+const DUMMY_USERNAME = 'Nafero Rafif';
+const DUMMY_PASSWORD = 'Rafif1004.';
+const SESSION_KEY = 'agro_kates_dummy_session';
+const PROFILE_KEY = 'agro_kates_profile_name';
+
+type DummyUser = typeof DUMMY_USER;
 
 interface AuthContextValue {
-  session: Session | null;
-  user: User | null;
+  session: { user: DummyUser } | null;
+  user: DummyUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (usernameOrEmail: string, password: string, name: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const PROFILE_KEY = 'agro_kates_profile_name';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem(SESSION_KEY) === '1';
+  });
 
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    // onAuthStateChange guarded against deadlock: only set state when mounted.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!mounted) return;
-      setSession(newSession);
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  const session = loggedIn ? { user: DUMMY_USER } : null;
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
-      user: session?.user ?? null,
-      loading,
-      signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return { error: error ? translateAuthError(error.message) : null };
+      user: loggedIn ? DUMMY_USER : null,
+      loading: false,
+      signIn: async (usernameOrEmail, password) => {
+        const matchUser =
+          usernameOrEmail.trim() === DUMMY_USERNAME ||
+          usernameOrEmail.trim() === DUMMY_USER.email;
+        if (matchUser && password === DUMMY_PASSWORD) {
+          localStorage.setItem(SESSION_KEY, '1');
+          localStorage.setItem(PROFILE_KEY, DUMMY_USERNAME);
+          setLoggedIn(true);
+          return { error: null };
+        }
+        return { error: 'Username atau kata sandi salah.' };
       },
-      signUp: async (email, password, name) => {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } },
-        });
-        if (error) return { error: translateAuthError(error.message) };
-        // Persist display name locally for instant profile rendering.
-        if (data.user) localStorage.setItem(PROFILE_KEY, name);
+      signUp: async (_email, _password, name) => {
+        localStorage.setItem(SESSION_KEY, '1');
+        localStorage.setItem(PROFILE_KEY, name || DUMMY_USERNAME);
+        setLoggedIn(true);
         return { error: null };
       },
       signOut: async () => {
-        await supabase.auth.signOut();
+        localStorage.removeItem(SESSION_KEY);
+        setLoggedIn(false);
       },
     }),
-    [session, loading]
+    [loggedIn]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -86,13 +84,5 @@ export function getStoredProfileName(): string {
   return localStorage.getItem(PROFILE_KEY) ?? '';
 }
 
-function translateAuthError(msg: string): string {
-  const m = msg.toLowerCase();
-  if (m.includes('invalid login credentials')) return 'Email atau kata sandi salah.';
-  if (m.includes('user already registered')) return 'Email sudah terdaftar. Silakan masuk.';
-  if (m.includes('password should be at least'))
-    return 'Kata sandi minimal 6 karakter.';
-  if (m.includes('unable to validate email')) return 'Format email tidak valid.';
-  if (m.includes('email not confirmed')) return 'Email belum dikonfirmasi.';
-  return 'Terjadi kesalahan. Coba lagi.';
-}
+
+export { AuthProvider, useAuth }

@@ -61,7 +61,7 @@ export function AuthModal({ open, onClose, initialMode = 'login', onAuthed }: Au
     setError(null);
     setBusy(true);
     if (!email.trim() || !password) {
-      setError('Mohon isi email dan kata sandi.');
+      setError('Mohon isi username/email dan kata sandi.');
       setBusy(false);
       return;
     }
@@ -168,12 +168,12 @@ export function AuthModal({ open, onClose, initialMode = 'login', onAuthed }: Au
             {/* Login panel */}
             <form onSubmit={submit} className="w-1/2 space-y-4 pr-1">
               <Field
-                label="Email"
-                type="email"
+                label="Username / Email"
+                type="text"
                 value={email}
                 onChange={setEmail}
-                placeholder="nama@email.com"
-                autoComplete="email"
+                placeholder="Nafero Rafif atau email"
+                autoComplete="username"
               />
               <Field
                 label="Kata Sandi"

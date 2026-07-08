@@ -61,6 +61,11 @@ export function useAdmin() {
         if (!mounted) return;
         setIsAdmin(!!data);
         setAdminLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setIsAdmin(false);
+        setAdminLoading(false);
       });
     return () => { mounted = false; };
   }, [user]);
